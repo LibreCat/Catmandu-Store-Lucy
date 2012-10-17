@@ -1,19 +1,73 @@
-package Catmandu::Index::Lucy;
+package Catmandu::Store::Lucy;
+
 use Catmandu::Sane;
-use Catmandu::Util qw(is_able check_id);
+use Moo;
 use Lucy::Plan::Schema;
+use Lucy::Plan::StringType;
 use Lucy::Plan::FullTextType;
 use Lucy::Analysis::PolyAnalyzer;
 use Lucy::Index::Indexer;
 use Lucy::Search::IndexSearcher;
-use Catmandu::Hits;
-use Catmandu::Object
-    path => 'r',
-    _analyzer      => { default => '_build_analyzer' },
-    _ft_field_type => { default => '_build_ft_field_type' },
-    _schema        => { default => '_build_schema' },
-    _indexer       => { default => '_build_indexer' },
-    _searcher      => { default => '_build_searcher' };
+use Data::MessagePack;
+use Catmandu::Store::Lucy::Bag;
+
+with 'Catmandu::Store';
+
+=head1 NAME
+
+Catmandu::Store::Lucy - A searchable store backed by Lucy 
+
+=head1 VERSION
+
+Version 0.01
+
+=cut
+
+our $VERSION = '0.01';
+
+=head1 SYNOPSIS
+
+    use Catmandu::Store::Lucy;
+
+    my $store = Catmandu::Store::Lucy->new(path => '/path/to/index/');
+
+    my $book = $store->bag->add({ title => 'Advanced Perl' });
+
+    printf "book stored as %s\n", $book->{_id};
+
+    $store->bag->commit;
+
+    $bag->get($id);
+
+    # all bags are iterators
+    $bag->each(sub { ... });
+    $bag->take(10)->each(sub { ... });
+
+    my $hits = $bag->search(query => 'perl');
+
+    # hits is an iterator
+    $hits->each(sub {
+        say $_[0]->{title};
+    });
+
+    $bag->delete($id);
+    $bag->delete_by_query(query => 'perl');
+    $bag->delete_all;
+    $bag->commit;
+
+=cut
+
+has path => (is => 'ro', required => 1);
+
+for my $attr (qw(analyzer ft_field_type schema)) {
+    has "_$attr" => (is => 'ro', lazy => 1, builder => "_build_$attr");
+}
+
+for my $attr (qw(indexer searcher)) {
+    has "_$attr" => (is => 'ro', lazy => 1, builder => "_build_$attr", clearer => 1, predicate => 1);
+}
+
+sub _messagepack { state $_messagepack = Data::MessagePack->new->utf8 }
 
 sub _build_analyzer {
     Lucy::Analysis::PolyAnalyzer->new(language => 'en');
@@ -21,13 +75,15 @@ sub _build_analyzer {
 
 sub _build_ft_field_type {
     my $self = $_[0];
-    Lucy::Plan::FullTextType->new(analyzer => $self->_analyzer);
+    Lucy::Plan::FullTextType->new(analyzer => $self->_analyzer, stored => 0);
 }
 
 sub _build_schema {
     my $self = $_[0];
     my $schema = Lucy::Plan::Schema->new;
-    $schema->spec_field(name => '_id', type => Lucy::Plan::StringType->new);
+    $schema->spec_field(name => '_id',   type => Lucy::Plan::StringType->new(stored => 1, sortable => 1));
+    $schema->spec_field(name => '_bag',  type => Lucy::Plan::StringType->new(stored => 0));
+    $schema->spec_field(name => '_data', type => Lucy::Plan::BlobType->new(stored => 1));
     $schema;
 }
 
@@ -41,103 +97,32 @@ sub _build_searcher {
     Lucy::Search::IndexSearcher->new(index => $self->path);
 }
 
-sub _add {
-    my ($self, $obj) = @_;
-    check_id($obj);
-    my $type   = $self->_ft_field_type;
-    my $schema = $self->_schema;
-    for my $name (keys %$obj) {
-        $schema->spec_field(name => $name, type => $type) if $name ne '_id';
-    }
-    $self->_indexer->add_doc($obj);
-    $obj;
-}
-
-sub add {
-    my ($self, $obj) = @_;
-    if (is_able $obj, 'each') {
-        $obj->each(sub { $self->_add($_[0]) });
-    } else {
-        $self->_add($obj);
-    }
-}
-
-sub search {
-    my ($self, $query, %opts) = @_;
-
-    $opts{limit} ||= 50;
-    $opts{start} //= 0;
-
-    if (ref $query eq 'HASH') {
-        $query = Lucy::Search::ANDQuery->new(
-            children => [ map {
-                Lucy::Search::TermQuery->new(field => $_, term => $query->{$_});
-            } keys %$query ],
-        );
-    }
-
-    my $hits = $self->_searcher->hits(
-        query => $query,
-        num_wanted => $opts{limit},
-        offset => $opts{start},
-    );
-
-    my $objs = [];
-
-    if (my $store = $opts{reify}) {
-        while (my $hit = $hits->next) {
-            push @$objs, $store->get($hit->{_id});
-        }
-    } else {
-        while (my $hit = $hits->next) {
-            push @$objs, $hit->get_fields;
-        }
-    }
-
-    Catmandu::Hits->new({
-        limit => $opts{limit},
-        start => $opts{start},
-        total => $hits->total,
-        hits => $objs,
-    });
-}
-
-sub delete {
-    my ($self, $id) = @_;
-    $self->_indexer->delete_by_term(field => '_id', term => check_id($id));
-    return;
-}
-
-sub delete_where {
-    my ($self, $query) = @_;
-
-    if (! ref $query) {
-        $query = Lucy::Search::QueryParser->new(schema => $self->_schema)->parse($query);
-    } elsif (ref $query eq 'HASH') {
-        my $terms = [ map {
-            Lucy::Search::TermQuery->new(field => $_, term => $query->{$_});
-        } keys %$query ];
-        $query = Lucy::Search::ANDQuery->new(children => $terms);
-    }
-
-    $self->_indexer->delete_by_query($query);
-    return;
-}
-
-sub delete_all {
-    my ($self) = @_;
-    $self->delete_where(Lucy::Search::MatchAllQuery->new);
-    return;
-}
-
-sub commit { # TODO optimize
+sub _commit {
     my ($self) = @_;
 
-    if ($self->{_indexer}) {
-        $self->{_indexer}->commit;
-        delete $self->{_indexer};
-        delete $self->{_searcher};
+    if ($self->_has_indexer) {
+        $self->_indexer->commit;
+        $self->_clear_indexer;
+        $self->_clear_searcher;
     }
 }
+
+=head1 SEE ALSO
+
+L<Catmandu::Store>
+
+=head1 AUTHOR
+
+Nicolas Steenlant, C<< <nicolas.steenlant at ugent.be> >>
+
+=head1 LICENSE AND COPYRIGHT
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of either: the GNU General Public License as published
+by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
+
+=cut
 
 1;
