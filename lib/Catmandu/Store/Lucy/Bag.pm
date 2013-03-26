@@ -1,13 +1,14 @@
 package Catmandu::Store::Lucy::Bag;
 
 use Catmandu::Sane;
-use Moo;
+use Carp qw(confess);
 use Catmandu::Hits;
 use Lucy::Search::ANDQuery;
 use Lucy::Search::TermQuery;
 use Lucy::Search::QueryParser;
 use Lucy::Search::SortSpec;
 use Lucy::Search::SortRule;
+use Moo;
 
 with 'Catmandu::Bag';
 with 'Catmandu::Searchable';
