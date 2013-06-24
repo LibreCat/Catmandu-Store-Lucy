@@ -9,7 +9,6 @@ my $builder = Module::Build->new(
         'Nicolas Steenlant <nicolas.steenlant@ugent.be>'
     ],
     build_requires => {
-        'Software::License' => 0,
         'Test::Exception' => 0,
         'Test::More' => 0,
     },
@@ -23,7 +22,6 @@ my $builder = Module::Build->new(
         Catmandu-Store-Lucy-*
     )],
     create_makefile_pl => 'traditional',
-    create_license => 1,
 );
 
 $builder->create_build_script;
