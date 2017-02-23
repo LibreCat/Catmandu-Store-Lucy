@@ -13,7 +13,7 @@ my %module_build_args = (
   "configure_requires" => {
     "Module::Build" => "0.28"
   },
-  "dist_abstract" => "A searchable store backed by Lucy ",
+  "dist_abstract" => "A searchable store backed by Lucy",
   "dist_author" => [
     "Nicolas Steenlant, C<< <nicolas.steenlant at ugent.be> >>"
   ],
