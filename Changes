@@ -1,7 +1,11 @@
 Revision history for Catmandu-Store-Lucy
 
-0.0101  2013-06-24
-       - import Carp
+{{$NEXT}}
+    - Moving to Dist::Milla
+    - Adding missing dependencies
 
-0.01    2012-10-17
-       - initial release
+0.0101 2013-06-24
+    - import Carp
+
+0.01 2012-10-17
+    - initial release

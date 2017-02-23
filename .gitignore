@@ -1,4 +1,4 @@
-!.gitignore
+.gitignore
 .DS_Store
 *.swp
 .build
@@ -6,7 +6,9 @@ _build
 blib
 Build
 Makefile.PL
-MANIFEST*
+Build.PL
 META.*
 MYMETA.*
-Catmandu-Store-Lucy-*
+Catmandu-Store-*
+local
+cpanfile.snapshot
