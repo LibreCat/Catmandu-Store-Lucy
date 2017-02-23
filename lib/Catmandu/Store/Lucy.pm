@@ -15,7 +15,7 @@ with 'Catmandu::Store';
 
 =head1 NAME
 
-Catmandu::Store::Lucy - A searchable store backed by Lucy 
+Catmandu::Store::Lucy - A searchable store backed by Lucy
 
 =head1 VERSION
 
@@ -27,9 +27,15 @@ our $VERSION = '0.0101';
 
 =head1 SYNOPSIS
 
-    use Catmandu::Store::Lucy;
+    # From the command line
 
-    my $store = Catmandu::Store::Lucy->new(path => '/path/to/index/');
+    $ catmandu import JSON to Lucy --path /path/to/index/ < data.json
+    $ catmandu export Lucy --path /path/to/index/ to JSON > data.json
+
+    # From perl
+    use Catmandu;
+
+    my $store = Catmandu->store('Lucy',path => '/path/to/index/');
 
     my $book = $store->bag->add({ title => 'Advanced Perl' });
 
