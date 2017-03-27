@@ -18,7 +18,7 @@ my %module_build_args = (
     "Nicolas Steenlant, C<< <nicolas.steenlant at ugent.be> >>"
   ],
   "dist_name" => "Catmandu-Store-Lucy",
-  "dist_version" => "0.0102",
+  "dist_version" => "0.0103",
   "license" => "perl",
   "module_name" => "Catmandu::Store::Lucy",
   "recursive_test_files" => 1,
