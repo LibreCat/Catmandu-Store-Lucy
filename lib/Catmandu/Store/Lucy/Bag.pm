@@ -165,25 +165,6 @@ sub delete_by_query {
 
 }
 
-sub translate_sru_sortkeys { # TODO score, cql mapping
-    my ($self, $sortkeys) = @_;
-    my $rules = [];
-    for my $sortkey (split /\s+/, $sortkeys) {
-        my ($field, $schema, $asc) = split /,/, $sortkey;
-        $field || next;
-        if ($field eq 'relevance') {
-            push @$rules, Lucy::Search::SortRule->new(type => 'score', reverse => $asc ? 1 : 0);
-        } else {
-            push @$rules, Lucy::Search::SortRule->new(type => 'field', field => $field, reverse => $asc ? 0 : 1);
-        }
-    }
-    Lucy::Search::SortSpec->new(rules => $rules);
-}
-
-sub translate_cql_query {
-    confess 'TODO';
-}
-
 sub normalize_query {
     my ($self, $query) = @_;
     if (!defined $query) {

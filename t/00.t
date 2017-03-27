@@ -65,11 +65,6 @@ $hits = $bag->search(query => 'ruby');
 
 is $hits->total, 1;
 
-my @ids = sort @{$bag->pluck('_id')->to_array};
-
-is $ids[0],  $store->bag->search(sru_sortkeys => "_id,,1")->first->{_id};
-is $ids[-1], $store->bag->search(sru_sortkeys => "_id,,0")->first->{_id};
-
 $bag->delete($data->{_id});
 $bag->commit;
 
@@ -85,4 +80,4 @@ $bag->commit;
 
 is $bag->count, 0;
 
-done_testing 18;
+done_testing;
