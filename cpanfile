@@ -8,6 +8,7 @@ on 'test', sub {
   requires 'Test::Pod' , '0';
 };
 
+requires 'Moo', 0;
 requires 'Catmandu', '>=1.04';
 requires 'Lucy', 0;
 requires 'Data::MessagePack', 0;
